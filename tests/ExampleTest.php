@@ -17,10 +17,7 @@ class ExampleTest extends PHPUnit_Framework_TestCase
         $baseUrl = getenv('BSD_API_BASEURL');
 
         if ($id && $secret && $baseUrl) {
-
-            $client = new Client(
-                $id, $secret, $baseUrl
-            );
+            $client = new Client($id, $secret, $baseUrl);
 
             $response = $client->get(
                 "cons/get_constituents_by_id",

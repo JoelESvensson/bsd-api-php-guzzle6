@@ -1,14 +1,23 @@
 <?php
 namespace Blue\Tools\Api;
 
+use GuzzleHttp;
+use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Message\FutureResponse;
 use GuzzleHttp\Message\Response;
-use GuzzleHttp\Message\ResponseInterface;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\HandlerStack;
+
 use InvalidArgumentException;
+
+use League\Uri\Components\Query;
+
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+
 use RuntimeException;
-use GuzzleHttp\Client as GuzzleClient;
 
 class Client
 {
@@ -79,9 +88,38 @@ class Client
         $this->secret = $secret;
         $this->baseUrl = $validatedUrl . '/page/api/';
 
+        $handlerStack = HandlerStack::create(GuzzleHttp\choose_handler());
+        $handlerStack->push(Middleware::mapRequest(
+            function (RequestInterface $request) {
+                $uri = $request->getUri();
+
+                $query = new Query($uri->getQuery());
+
+                /**
+                 * Add id and version to the query
+                 */
+                $query = $query->merge(Query::createFromArray([
+                    'api_id' => $this->id,
+                    'api_ver' => '2'
+                ]));
+
+                /**
+                 * Add timestamp to the query
+                 */
+                if (!$query->hasKey('api_ts')) {
+                    $query = $query->merge(Query::createFromArray([
+                        'api_ts', time()
+                    ]));
+                }
+                $query = $query->merge(Query::createFromArray([
+                    'api_mac' => $this->generateMac($uri->getPath(), $query)
+                ]));
+                return $request->withUri($uri->withQuery((string)$query));
+            }
+        ));
         $this->guzzleClient = new GuzzleClient(
             [
-                'message_factory' => new MessageFactory()
+                'handler' => $handlerStack
             ]
         );
     }
@@ -100,12 +138,7 @@ class Client
             $this->baseUrl . $apiPath,
             [
                 'query' => $queryParams,
-                'future' => false,
-                'auth' => [
-                    $this->id,
-                    $this->secret,
-                    self::$AUTH_TYPE
-                ],
+                'future' => false
             ]
         );
 
@@ -129,12 +162,7 @@ class Client
             [
                 'query' => $queryParams,
                 'body' => $data,
-                'future' => false,
-                'auth' => [
-                    $this->id,
-                    $this->secret,
-                    self::$AUTH_TYPE
-                ],
+                'future' => false
             ]
         );
 
@@ -144,7 +172,7 @@ class Client
 
     /**
      * @param ResponseInterface $response
-     * @return FutureResponse|Response|\GuzzleHttp\Message\ResponseInterface|\GuzzleHttp\Ring\Future\FutureInterface|null
+     * @return FutureResponse|Response|ResponseInterface|\GuzzleHttp\Ring\Future\FutureInterface|null
      */
     private function resolve(ResponseInterface $response)
     {
@@ -160,11 +188,6 @@ class Client
                 $deferredResponse = $this->guzzleClient->get(
                     $this->baseUrl . "get_deferred_results",
                     [
-                        'auth' => [
-                            $this->id,
-                            $this->secret,
-                            self::$AUTH_TYPE
-                        ],
                         'future' => false,
                         'query' => [
                             'deferred_id' => $key
@@ -180,13 +203,36 @@ class Client
                 $attempts--;
             }
 
-            throw new RuntimeException("Could not load deferred response after {$this->deferredResultMaxAttempts} attempts");
+            throw new RuntimeException("Could not load deferred response " .
+                "after {$this->deferredResultMaxAttempts} attempts");
         }
 
         // If the request was not deferred, then return as-is
         return $response;
     }
 
+    /**
+     * Creates a hash based on request parameters
+     *
+     * @param string $path
+     * @param League\Uri\Components\Query $query
+     * @return string
+     */
+    private function generateMac($path, $query)
+    {
+        // build query string from given parameters
+        $queryString = (string)$query;
+
+        // combine strings to build the signing string
+        $apiId = $query->getValue('api_id');
+        $apiTs = $query->getValue('api_ts');
+        $signingString = $apiId . "\n" .
+            $apiTs . "\n" .
+            $path . "\n" .
+            $queryString;
+        $mac = hash_hmac('sha1', $signingString, $this->secret);
+        return $mac;
+    }
 
     /**
      * @param int $deferredResultMaxAttempts

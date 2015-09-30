@@ -1,9 +1,10 @@
 <?php
 namespace Blue\Tools\Api;
 
-use GuzzleHttp\Message\Response;
-use GuzzleHttp\Stream\Stream;
-use GuzzleHttp\Subscriber\Mock;
+use GuzzleHttp\Psr7\Response;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7;
 use InvalidArgumentException;
 use PHPUnit_Framework_TestCase;
 use RuntimeException;
@@ -20,14 +21,15 @@ class ClientTest extends PHPUnit_Framework_TestCase
      * @param $secret
      * @param $url
      */
-    public function testValidClient($id, $secret, $url)
+    public function testInvalidClient($id, $secret, $url)
     {
         $client = new Client($id, $secret, $url);
         $this->fail('Constructor was successful with invalid data');
 
     }
 
-    public function invalidConstructorData() {
+    public function invalidConstructorData()
+    {
         return [
             ['', 'some_secret', 'http://www.whatever.com'],
             ['someone', '', 'http://www.whatever.com'],
@@ -42,15 +44,19 @@ class ClientTest extends PHPUnit_Framework_TestCase
      */
     public function testGetReady()
     {
-        $client = new Client('someone', 'some_secret', 'http://www.whatever.com');
+        $client = new Client(
+            'someone',
+            'some_secret',
+            'http://www.whatever.com'
+        );
 
-        $mock = new Mock(
+        $mock = new MockHandler(
             [
-                new Response(200, [], Stream::factory('ABC'))
+                new Response(200, [], Psr7\stream_for('ABC'))
             ]
         );
 
-        $client->getGuzzleClient()->getEmitter()->attach($mock);
+        $client->getGuzzleClient()->getConfig('handler')->setHandler($mock);
 
         $response = $client->get('some_path', []);
 
@@ -64,15 +70,19 @@ class ClientTest extends PHPUnit_Framework_TestCase
      */
     public function testPost()
     {
-        $client = new Client('someone', 'some_secret', 'http://www.whatever.com');
+        $client = new Client(
+            'someone',
+            'some_secret',
+            'http://www.whatever.com'
+        );
 
-        $mock = new Mock(
+        $mock = new MockHandler(
             [
-                new Response(200, [], Stream::factory('ABC'))
+                new Response(200, [], Psr7\stream_for('ABC'))
             ]
         );
 
-        $client->getGuzzleClient()->getEmitter()->attach($mock);
+        $client->getGuzzleClient()->getConfig('handler')->setHandler($mock);
 
         $response = $client->post('some_path', [], 'data');
 
@@ -89,16 +99,16 @@ class ClientTest extends PHPUnit_Framework_TestCase
         $client = new Client('someone', 'some_secret', 'http://www.whatever.com');
         $client->setDeferredResultInterval(0);
 
-        $mock = new Mock(
+        $mock = new MockHandler(
             [
-                new Response(202, [], Stream::factory('NOT')),
-                new Response(202, [], Stream::factory('READY')),
-                new Response(202, [], Stream::factory('YET')),
-                new Response(200, [], Stream::factory('Finally!'))
+                new Response(202, [], Psr7\stream_for('NOT')),
+                new Response(202, [], Psr7\stream_for('READY')),
+                new Response(202, [], Psr7\stream_for('YET')),
+                new Response(200, [], Psr7\stream_for('Finally!'))
             ]
         );
 
-        $client->getGuzzleClient()->getEmitter()->attach($mock);
+        $client->getGuzzleClient()->getConfig('handler')->setHandler($mock);
 
         $response = $client->get('some_path', []);
 
@@ -113,20 +123,24 @@ class ClientTest extends PHPUnit_Framework_TestCase
      */
     public function testGetDeferredResultMaxAttemptsReached()
     {
-        $client = new Client('someone', 'some_secret', 'http://www.whatever.com');
+        $client = new Client(
+            'someone',
+            'some_secret',
+            'http://www.whatever.com'
+        );
         $client->setDeferredResultInterval(0);
         $client->setDeferredResultMaxAttempts(2);
 
-        $mock = new Mock(
+        $mock = new MockHandler(
             [
-                new Response(202, [], Stream::factory('First attempt')),
-                new Response(202, [], Stream::factory('Second attempt')),
-                new Response(202, [], Stream::factory('Third attempt')),
-                new Response(200, [], Stream::factory('Finally!'))
+                new Response(202, [], Psr7\stream_for('First attempt')),
+                new Response(202, [], Psr7\stream_for('Second attempt')),
+                new Response(202, [], Psr7\stream_for('Third attempt')),
+                new Response(200, [], Psr7\stream_for('Finally!'))
             ]
         );
 
-        $client->getGuzzleClient()->getEmitter()->attach($mock);
+        $client->getGuzzleClient()->getConfig('handler')->setHandler($mock);
 
         $response = $client->get('some_path', []);
         $content = $response->getBody()->getContents();
