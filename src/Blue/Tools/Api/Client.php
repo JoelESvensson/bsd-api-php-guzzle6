@@ -218,7 +218,7 @@ class Client
      * @param League\Uri\Components\Query $query
      * @return string
      */
-    private function generateMac($path, $query)
+    private function generateMac($path, Query $query)
     {
         // build query string from given parameters
         $queryString = (string)$query;
