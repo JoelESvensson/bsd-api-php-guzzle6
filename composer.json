@@ -1,5 +1,5 @@
 {
-  "name": "bluestatedigital/tools-api-client",
+  "name": "joelesvensson/tools-api-client",
   "description": "Client library for the BSD Tools API",
   "license": "Apache-2.0",
   "require": {

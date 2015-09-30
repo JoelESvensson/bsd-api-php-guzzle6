@@ -74,7 +74,6 @@ class Client
     public function __construct($id, $secret, $url)
     {
         $this->logger = new NullLogger();
-
         if (!strlen($id) || !strlen($secret)) {
             throw new InvalidArgumentException('api_id and api_secret must both be provided');
         }
@@ -92,7 +91,6 @@ class Client
         $handlerStack->push(Middleware::mapRequest(
             function (RequestInterface $request) {
                 $uri = $request->getUri();
-
                 $query = new Query($uri->getQuery());
 
                 /**
