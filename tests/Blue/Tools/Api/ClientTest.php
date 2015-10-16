@@ -1,17 +1,16 @@
 <?php
+
 namespace Blue\Tools\Api;
 
-use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7;
+use GuzzleHttp\Psr7\Response;
 use InvalidArgumentException;
 use PHPUnit_Framework_TestCase;
 use RuntimeException;
 
 class ClientTest extends PHPUnit_Framework_TestCase
 {
-
     /**
      * @scenario Constructor should handle invalid inputs
      * @dataProvider invalidConstructorData
@@ -25,7 +24,6 @@ class ClientTest extends PHPUnit_Framework_TestCase
     {
         $client = new Client($id, $secret, $url);
         $this->fail('Constructor was successful with invalid data');
-
     }
 
     public function invalidConstructorData()
@@ -37,7 +35,6 @@ class ClientTest extends PHPUnit_Framework_TestCase
             ['someone', 'some_secret', 'com.notvalid.www//:http'],
         ];
     }
-
 
     /**
      * @scenario A non-deferred response should have content available immediately
@@ -52,7 +49,7 @@ class ClientTest extends PHPUnit_Framework_TestCase
 
         $mock = new MockHandler(
             [
-                new Response(200, [], Psr7\stream_for('ABC'))
+                new Response(200, [], Psr7\stream_for('ABC')),
             ]
         );
 
@@ -61,9 +58,7 @@ class ClientTest extends PHPUnit_Framework_TestCase
         $response = $client->get('some_path', []);
 
         $this->assertEquals('ABC', $response->getBody()->getContents());
-
     }
-
 
     /**
      * @scenario POST should work just like GET
@@ -78,7 +73,7 @@ class ClientTest extends PHPUnit_Framework_TestCase
 
         $mock = new MockHandler(
             [
-                new Response(200, [], Psr7\stream_for('ABC'))
+                new Response(200, [], Psr7\stream_for('ABC')),
             ]
         );
 
@@ -87,9 +82,7 @@ class ClientTest extends PHPUnit_Framework_TestCase
         $response = $client->post('some_path', [], 'data');
 
         $this->assertEquals('ABC', $response->getBody()->getContents());
-
     }
-
 
     /**
      * @scenario If the client detects a deferred result, it will keep trying until the result is available
@@ -104,7 +97,7 @@ class ClientTest extends PHPUnit_Framework_TestCase
                 new Response(202, [], Psr7\stream_for('NOT')),
                 new Response(202, [], Psr7\stream_for('READY')),
                 new Response(202, [], Psr7\stream_for('YET')),
-                new Response(200, [], Psr7\stream_for('Finally!'))
+                new Response(200, [], Psr7\stream_for('Finally!')),
             ]
         );
 
@@ -114,7 +107,6 @@ class ClientTest extends PHPUnit_Framework_TestCase
 
         $this->assertEquals('Finally!', $response->getBody()->getContents());
     }
-
 
     /**
      * @scenario An exception is thrown when a deferred result cannot be obtained after a configured number of attempts
@@ -136,7 +128,7 @@ class ClientTest extends PHPUnit_Framework_TestCase
                 new Response(202, [], Psr7\stream_for('First attempt')),
                 new Response(202, [], Psr7\stream_for('Second attempt')),
                 new Response(202, [], Psr7\stream_for('Third attempt')),
-                new Response(200, [], Psr7\stream_for('Finally!'))
+                new Response(200, [], Psr7\stream_for('Finally!')),
             ]
         );
 
@@ -144,6 +136,5 @@ class ClientTest extends PHPUnit_Framework_TestCase
 
         $response = $client->get('some_path', []);
         $content = $response->getBody()->getContents();
-
     }
 }
